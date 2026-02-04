@@ -115,6 +115,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+              # 👇 ADD THIS LINE RIGHT HERE (temporary)
+
+      - name: Verify Docker Hub auth
+        run: docker info
+
       # Build locally for scanning + SBOM generation
       - name: Build Docker image (local)
         uses: docker/build-push-action@v5
