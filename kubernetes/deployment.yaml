@@ -1,33 +1,3 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: tic-tac-toe
-  namespace: tic-tac-toe
-  labels:
-    app: tic-tac-toe
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: tic-tac-toe
-  template:
-    metadata:
-      labels:
-        app: tic-tac-toe
-    spec:
-      # Pod-level hardening (good baseline)
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
-        seccompProfile:
-          type: RuntimeDefault
-
-      containers:
-        - name: tic-tac-toe
-          # Switch away from GHCR → your pipeline will update tag anyway
-          image: emmytech05/devsecops-demo:sha-d71fe7cd6113e9452cdd05929eb69c6569256491
 kind: Deployment
 metadata:
   name: tic-tac-toe
