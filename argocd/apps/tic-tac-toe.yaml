@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/MIN2MAX-M/devsecops-demo
     targetRevision: main
-    path: kubernetes
+    path: kubernetes/base
   destination:
     server: https://kubernetes.default.svc
     namespace: tic-tac-toe
