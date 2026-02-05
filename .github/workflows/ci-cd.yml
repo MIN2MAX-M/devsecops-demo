@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'kubernetes/deployment.yaml'
+      - 'kubernetes/base/**'
   pull_request:
     branches: [ main ]
 
@@ -186,7 +186,7 @@ jobs:
       - name: Checkov (Kubernetes security scan)
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: kubernetes
+          directory: kubernetes/base
           framework: kubernetes
 
       - name: Configure Git
@@ -200,9 +200,9 @@ jobs:
           IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
         run: |
           NEW_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
-          sed -i "s|image: .*|image: ${NEW_IMAGE}|g" kubernetes/deployment.yaml
+          sed -i -E "s|image: .*|(image:\s*).*/devsecops-demo:.*|\1${NEW_IMAGE}|g" kubernetes/base/deployment.yaml
           echo "Updated image to ${NEW_IMAGE}"
-          grep -n "image:" kubernetes/deployment.yaml
+          grep -n "image:" kubernetes/base/deployment.yaml
 
       - name: Commit and push
         run: |
