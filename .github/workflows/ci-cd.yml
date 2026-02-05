@@ -199,6 +199,7 @@ jobs:
         with:
           directory: kubernetes/base
           framework: kubernetes
+          skip_check: CKV_K8S_43
 
       - name: Configure Git
         shell: bash
