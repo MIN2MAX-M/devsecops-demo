@@ -115,8 +115,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-              # 👇 ADD THIS LINE RIGHT HERE (temporary)
-
       - name: Verify Docker Hub auth
         run: docker info
 
@@ -182,6 +180,19 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Fail-fast: prove the directory + target file exist (and show tree if not)
+      - name: Fail fast - verify manifests path
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PWD=$(pwd)"
+          ls -la
+          test -d kubernetes/base || { echo "ERROR: kubernetes/base missing"; find . -maxdepth 3 -type d | sort; exit 1; }
+          test -f kubernetes/base/deployment.yaml || { echo "ERROR: kubernetes/base/deployment.yaml missing"; find kubernetes -maxdepth 4 -type f | sort; exit 1; }
+          echo "OK: kubernetes/base and deployment.yaml exist"
 
       - name: Checkov (Kubernetes security scan)
         uses: bridgecrewio/checkov-action@v12
@@ -190,22 +201,37 @@ jobs:
           framework: kubernetes
 
       - name: Configure Git
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-      - name: Update Kubernetes manifest
+      - name: Update Kubernetes manifest (image tag)
+        shell: bash
         env:
           IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/devsecops-demo
           IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
         run: |
+          set -euo pipefail
           NEW_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
-          sed -i -E "s|image: .*|(image:\s*).*/devsecops-demo:.*|\1${NEW_IMAGE}|g" kubernetes/base/deployment.yaml
+
+          # Fail fast if the expected image line isn't present (prevents silent no-op)
+          grep -nE '^\s*image:\s*.*devsecops-demo:' kubernetes/base/deployment.yaml >/dev/null \
+            || { echo "ERROR: No devsecops-demo image line found to replace"; grep -n "image:" kubernetes/base/deployment.yaml || true; exit 1; }
+
+          # Correct sed: only replace the image line that contains devsecops-demo
+          sed -i -E "/devsecops-demo:/ s|(image:\s*).*|\1${NEW_IMAGE}|" kubernetes/base/deployment.yaml
+
           echo "Updated image to ${NEW_IMAGE}"
           grep -n "image:" kubernetes/base/deployment.yaml
 
       - name: Commit and push
+        shell: bash
+        env:
+          IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
         run: |
-          git add kubernetes/deployment.yaml
-          git commit -m "Update image to ${IMAGE_TAG} [skip ci]" || echo "No changes"
+          set -euo pipefail
+          git add kubernetes/base/deployment.yaml
+          git commit -m "Update image to ${IMAGE_TAG} [skip ci]" || { echo "No changes"; exit 0; }
           git push
