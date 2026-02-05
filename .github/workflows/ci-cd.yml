@@ -3,8 +3,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - 'kubernetes/base/**'
   pull_request:
     branches: [ main ]
 
@@ -16,6 +14,7 @@ jobs:
   test:
     name: Unit Testing
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - uses: actions/checkout@v4
 
@@ -30,11 +29,13 @@ jobs:
   lint:
     name: Lint & Secrets Scan
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Fail fast: no extra inputs that break the action
       - name: Gitleaks (secrets scanning)
         uses: gitleaks/gitleaks-action@v2
 
@@ -49,6 +50,7 @@ jobs:
   build:
     name: Build & Dependency Scan
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     needs: [test, lint]
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +86,7 @@ jobs:
   docker:
     name: Docker Build, Scan, SBOM, Sign & Push
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     needs: [build]
     env:
       IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/devsecops-demo
@@ -163,8 +166,7 @@ jobs:
         uses: sigstore/cosign-installer@v3
 
       - name: Sign Docker image with Cosign
-        run: |
-          cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
+        run: cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
 
       - name: Attach SBOM attestation to image (Cosign)
         run: |
@@ -190,8 +192,8 @@ jobs:
           set -euo pipefail
           echo "PWD=$(pwd)"
           ls -la
-          test -d kubernetes/base || { echo "ERROR: kubernetes/base missing"; find . -maxdepth 3 -type d | sort; exit 1; }
-          test -f kubernetes/base/deployment.yaml || { echo "ERROR: kubernetes/base/deployment.yaml missing"; find kubernetes -maxdepth 4 -type f | sort; exit 1; }
+          test -d kubernetes/base || { echo "ERROR: kubernetes/base missing"; find . -maxdepth 4 -type d | sort; exit 1; }
+          test -f kubernetes/base/deployment.yaml || { echo "ERROR: kubernetes/base/deployment.yaml missing"; find kubernetes -maxdepth 6 -type f | sort; exit 1; }
           echo "OK: kubernetes/base and deployment.yaml exist"
 
       - name: Checkov (Kubernetes security scan)
