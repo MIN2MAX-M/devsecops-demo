@@ -28,7 +28,7 @@ spec:
 
       containers:
         - name: tic-tac-toe
-          image: emmytech05/devsecops-demo:sha-72ad9b14682f23e75ba36a91ad5d371706d0bb95
+          image: emmytech05/devsecops-demo:sha-a460b479f8555d0dc49dda4463e84b52fc389282
           imagePullPolicy: Always
           ports:
             - containerPort: 80
