@@ -1,20 +1,18 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: tic-tac-toe
+  name: apps
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: REPO_URL
+    repoURL: https://github.com/MIN2MAX-M/devsecops-demo
     targetRevision: main
-    path: kubernetes
+    path: argocd/apps
   destination:
     server: https://kubernetes.default.svc
-    namespace: tic-tac-toe
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
