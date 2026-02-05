@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # required for cosign keyless signing
+  id-token: write # required for cosign keyless signing
 
 jobs:
   test:
@@ -20,8 +20,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
 
       - run: npm ci
       - run: npm test || echo "No tests found"
@@ -35,14 +35,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Fail fast: no extra inputs that break the action
       - name: Gitleaks (secrets scanning)
         uses: gitleaks/gitleaks-action@v2
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
 
       - run: npm ci
       - run: npm run lint
@@ -57,8 +56,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
 
       - run: npm ci
 
@@ -78,7 +77,8 @@ jobs:
 
       - run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: dist/
@@ -103,14 +103,21 @@ jobs:
 
       - name: Set image tag output
         id: set_output
-        run: echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Hadolint (Dockerfile lint)
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -119,18 +126,26 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Verify Docker Hub auth
-        run: docker info
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker info >/dev/null
 
-      # Build locally for scanning + SBOM generation
-      - name: Build Docker image (local)
+      - name: Build & Push Docker image (multi-arch)
         uses: docker/build-push-action@v5
         with:
           context: .
-          load: true
-          push: false
+          push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
-      - name: Trivy Image Scan
+      - name: Fail fast - verify multi-arch manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}"
+
+      - name: Trivy Image Scan (remote)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
@@ -138,14 +153,15 @@ jobs:
           exit-code: 1
           ignore-unfixed: true
 
-      # SBOM (Software Bill of Materials)
       - name: Install Syft (SBOM)
         uses: anchore/sbom-action/download-syft@v0
 
-      - name: Generate SBOM (Syft)
+      - name: Generate SBOM (Syft from registry)
+        shell: bash
         run: |
-          syft "${IMAGE_NAME}:${IMAGE_TAG}" -o spdx-json=sbom.spdx.json
-          syft "${IMAGE_NAME}:${IMAGE_TAG}" -o cyclonedx-json=sbom.cdx.json
+          set -euo pipefail
+          syft "registry:${IMAGE_NAME}:${IMAGE_TAG}" -o spdx-json=sbom.spdx.json
+          syft "registry:${IMAGE_NAME}:${IMAGE_TAG}" -o cyclonedx-json=sbom.cdx.json
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
@@ -155,21 +171,19 @@ jobs:
             sbom.spdx.json
             sbom.cdx.json
 
-      - name: Push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
       - name: Sign Docker image with Cosign
-        run: cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
 
       - name: Attach SBOM attestation to image (Cosign)
+        shell: bash
         run: |
+          set -euo pipefail
           cosign attest --yes \
             --predicate sbom.spdx.json \
             --type spdxjson \
@@ -185,7 +199,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Fail-fast: prove the directory + target file exist (and show tree if not)
       - name: Fail fast - verify manifests path
         shell: bash
         run: |
@@ -219,11 +232,9 @@ jobs:
           set -euo pipefail
           NEW_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 
-          # Fail fast if the expected image line isn't present (prevents silent no-op)
           grep -nE '^\s*image:\s*.*devsecops-demo:' kubernetes/base/deployment.yaml >/dev/null \
             || { echo "ERROR: No devsecops-demo image line found to replace"; grep -n "image:" kubernetes/base/deployment.yaml || true; exit 1; }
 
-          # Correct sed: only replace the image line that contains devsecops-demo
           sed -i -E "/devsecops-demo:/ s|(image:\s*).*|\1${NEW_IMAGE}|" kubernetes/base/deployment.yaml
 
           echo "Updated image to ${NEW_IMAGE}"
