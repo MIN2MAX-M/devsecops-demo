@@ -26,7 +26,7 @@ spec:
       containers:
         - name: tic-tac-toe
           # Switch away from GHCR → your pipeline will update tag anyway
-          image: emmytech05/devsecops-demo:sha-d71fe7cd6113e9452cdd05929eb69c6569256491
+          image: emmytech05/devsecops-demo:sha-d928dadb29def542d51ffcd60e7ed28ee64b03f4
           # Image will be automatically updated by CI/CD pipeline
           imagePullPolicy: Always
           ports:
@@ -80,7 +80,7 @@ spec:
           emptyDir: {}
         - name: nginx-tmp
           emptyDir: {}
-          image: emmytech05/devsecops-demo:sha-d71fe7cd6113e9452cdd05929eb69c6569256491
+          image: emmytech05/devsecops-demo:sha-d928dadb29def542d51ffcd60e7ed28ee64b03f4
           # Image will be automatically updated by CI/CD pipeline
           imagePullPolicy: Always
           ports:
