@@ -27,7 +27,7 @@ spec:
       containers:
         - name: tic-tac-toe
           # Switch away from GHCR → your pipeline will update tag anyway
-          image: apiVersion: apps/v1
+          image: emmytech05/devsecops-demo:sha-d71fe7cd6113e9452cdd05929eb69c6569256491
 kind: Deployment
 metadata:
   name: tic-tac-toe
@@ -56,7 +56,7 @@ spec:
       containers:
         - name: tic-tac-toe
           # Switch away from GHCR → your pipeline will update tag anyway
-          image: DOCKERHUB_USERNAME/devsecops-demo:PLACEHOLDER
+          image: emmytech05/devsecops-demo:sha-d71fe7cd6113e9452cdd05929eb69c6569256491
           # Image will be automatically updated by CI/CD pipeline
           imagePullPolicy: Always
           ports:
@@ -110,7 +110,7 @@ spec:
           emptyDir: {}
         - name: nginx-tmp
           emptyDir: {}
-          image: emmytech05/devsecops-demo:sha-REPLACE_ME
+          image: emmytech05/devsecops-demo:sha-d71fe7cd6113e9452cdd05929eb69c6569256491
           # Image will be automatically updated by CI/CD pipeline
           imagePullPolicy: Always
           ports:
